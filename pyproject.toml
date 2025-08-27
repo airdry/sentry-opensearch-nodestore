@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sentry-opensearch-nodestore"
-version = "1.0.0"
+version = "1.0.1"
 description = "An asynchronous Sentry NodeStorage backend for OpenSearch."
 authors = ["airdry"]
 license = "MIT"
