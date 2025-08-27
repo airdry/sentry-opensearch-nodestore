@@ -1,21 +1,49 @@
 version: '3.8'
 
 services:
+  # Container 1: Original HTTP, no-auth instance for existing tests
   opensearch-test:
     image: opensearchproject/opensearch:3.2.0 # Using a specific version is good practice
     container_name: opensearch-test-node
     environment:
-      - cluster.name=opensearch-cluster
+      - cluster.name=opensearch-cluster-http
       - node.name=opensearch-test-node
       - discovery.type=single-node
-      - bootstrap.memory_lock=true # along with the ulimits below
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Small heap for testing
-      # IMPORTANT: This disables the security plugin, making it easy to connect in tests
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      # This disables the security plugin for simple HTTP access
       - "DISABLE_SECURITY_PLUGIN=true"
     ports:
-      - "9200:9200"
+      - "9200:9200" # Host port 9200 -> Container port 9200
     volumes:
       - opensearch-test-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Container 2: NEW HTTPS, with-auth instance for new tests
+  opensearch-test-secure:
+    image: opensearchproject/opensearch:3.2.0 # Keep versions consistent
+    container_name: opensearch-test-node-secure
+    environment:
+      - cluster.name=opensearch-cluster-https
+      - node.name=opensearch-test-node-secure
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=myStrongPassword123! # Set the admin password
+    ports:
+      - "9201:9200" # Host port 9201 -> Container port 9200
+    volumes:
+      - opensearch-test-data-secure:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -k -u 'admin:myStrongPassword123!' https://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   opensearch-test-data:
+  opensearch-test-data-secure: # Separate volume for the secure container
