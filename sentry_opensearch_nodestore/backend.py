@@ -34,22 +34,39 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
         self.alias_name = alias_name
         default_shards = 3
         default_replicas = 1
+
         try:
+            # Ensure this variable name is exactly correct
             shards_str = os.getenv('SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_SHARDS', str(default_shards))
             self.number_of_shards = int(shards_str)
         except (ValueError, TypeError):
-            self.logger.warning("Invalid value for SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_SHARDS. Falling back to default: %d", default_shards)
+            self.logger.warning(
+                "Invalid value for SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_SHARDS. Falling back to default: %d",
+                default_shards
+            )
+            self.number_of_shards = default_shards
+
         try:
+            # Ensure this variable name is exactly correct
             replicas_str = os.getenv('SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_REPLICAS', str(default_replicas))
             self.number_of_replicas = int(replicas_str)
         except (ValueError, TypeError):
-            self.logger.warning("Invalid value for SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_REPLICAS. Falling back to default: %d", default_replicas)
+            self.logger.warning(
+                "Invalid value for SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_REPLICAS. Falling back to default: %d",
+                default_replicas
+            )
+            self.number_of_replicas = default_replicas
+
         default_pattern = "sentry-*"
+        # Ensure this variable name is exactly correct
         pattern_str = os.getenv('SENTRY_NODESTORE_OPENSEARCH_INDEX_PATTERN', default_pattern)
         self.index_pattern = (pattern_str.strip() if pattern_str and pattern_str.strip() else default_pattern)
+
         default_codec = "zstd"
+        # Ensure this variable name is exactly correct
         codec_str = os.getenv('SENTRY_NODESTORE_OPENSEARCH_INDEX_CODEC', default_codec)
         self.index_codec = (codec_str.strip() if codec_str and codec_str.strip() else default_codec)
+
         super().__init__()
 
     async def bootstrap(self):
