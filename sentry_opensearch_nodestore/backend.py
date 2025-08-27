@@ -1,13 +1,16 @@
 # sentry_opensearch_nodestore/backend.py
 
+import asyncio
+import threading
 import base64
 from datetime import datetime, timezone
-import logging  # Ensure logging is imported
+import logging
 import zlib
 import os
 import opensearchpy
 from opensearchpy import AsyncOpenSearch
 from sentry.nodestore.base import NodeStorage
+from typing import Any
 
 
 class AsyncOpenSearchNodeStorage(NodeStorage):
@@ -15,10 +18,7 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
     An asynchronous Sentry NodeStorage backend for OpenSearch.
     """
 
-    # VVVVVVVVVVVVVVVVVVVV THIS LINE WAS MISSING VVVVVVVVVVVVVVVVVVVV
     logger = logging.getLogger("sentry.nodestore.opensearch")
-    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
     encoding = "utf-8"
 
     def __init__(
@@ -38,7 +38,6 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
         default_replicas = 1
 
         try:
-            # Ensure this variable name is exactly correct
             shards_str = os.getenv(
                 "SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_SHARDS", str(default_shards)
             )
@@ -51,7 +50,6 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
             self.number_of_shards = default_shards
 
         try:
-            # Ensure this variable name is exactly correct
             replicas_str = os.getenv(
                 "SENTRY_NODESTORE_OPENSEARCH_NUMBER_OF_REPLICAS", str(default_replicas)
             )
@@ -64,7 +62,6 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
             self.number_of_replicas = default_replicas
 
         default_pattern = "sentry-*"
-        # Ensure this variable name is exactly correct
         pattern_str = os.getenv(
             "SENTRY_NODESTORE_OPENSEARCH_INDEX_PATTERN", default_pattern
         )
@@ -75,7 +72,6 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
         )
 
         default_codec = "zstd"
-        # Ensure this variable name is exactly correct
         codec_str = os.getenv("SENTRY_NODESTORE_OPENSEARCH_INDEX_CODEC", default_codec)
         self.index_codec = (
             codec_str.strip() if codec_str and codec_str.strip() else default_codec
@@ -223,6 +219,7 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
             return
         for index in aliases_response.keys():
             try:
+                # Works for names like sentry-YYYY-MM-DD and sentry-YYYY-MM-DD-reindexed
                 index_date_str = "-".join(index.split("-")[1:4])
                 index_ts = datetime.strptime(index_date_str, "%Y-%m-%d").replace(
                     tzinfo=timezone.utc
@@ -238,3 +235,56 @@ class AsyncOpenSearchNodeStorage(NodeStorage):
                         "index.delete.error",
                         extra={"index": index, "error": "not found"},
                     )
+
+
+class SyncOpenSearchNodeStorage(AsyncOpenSearchNodeStorage):
+    """
+    A synchronous facade over AsyncOpenSearchNodeStorage.
+    Use this class with Sentry, which expects sync NodeStorage methods.
+    """
+
+    def _run(self, coro):
+        # If no loop is running, use asyncio.run.
+        try:
+            loop = asyncio.get_running_loop()
+            running = loop.is_running()
+        except RuntimeError:
+            running = False
+
+        if not running:
+            return asyncio.run(coro)
+
+        # Fallback: run the coroutine in a separate thread with its own loop.
+        result_holder: dict[str, Any] = {}
+        error_holder: dict[str, BaseException] = {}
+
+        def _target():
+            try:
+                result_holder["value"] = asyncio.run(coro)
+            except BaseException as e:  # propagate original exception
+                error_holder["err"] = e
+
+        t = threading.Thread(target=_target, daemon=True)
+        t.start()
+        t.join()
+        if "err" in error_holder:
+            raise error_holder["err"]
+        return result_holder.get("value")
+
+    def bootstrap(self) -> None:
+        self._run(super().bootstrap())
+
+    def _get_bytes(self, id: str) -> bytes | None:
+        return self._run(super()._get_bytes(id))
+
+    def _set_bytes(self, id: str, data: bytes, ttl=None) -> None:
+        self._run(super()._set_bytes(id, data, ttl))
+
+    def delete(self, id: str) -> None:
+        self._run(super().delete(id))
+
+    def delete_multi(self, id_list: list[str]) -> None:
+        self._run(super().delete_multi(id_list))
+
+    def cleanup(self, cutoff: datetime) -> None:
+        self._run(super().cleanup(cutoff))
