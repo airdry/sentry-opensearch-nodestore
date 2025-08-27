@@ -2,10 +2,10 @@
 name = "sentry-opensearch-nodestore"
 version = "0.1.0"
 description = "An asynchronous Sentry NodeStorage backend for OpenSearch."
-authors = ["Your Name <you@example.com>"]
+authors = ["airdry"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/your-username/sentry-opensearch-nodestore" # Optional: Add your repo URL
+repository = "https://github.com/airdry/sentry-opensearch-nodestore" # Optional: Add your repo URL
 keywords = ["sentry", "opensearch", "nodestore", "asyncio"]
 
 [tool.poetry.dependencies]
