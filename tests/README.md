@@ -1,55 +1,29 @@
-### Running Tests
+# Test Guide
 
-The project includes two types of tests: fast unit tests that mock external services, and slower integration tests that run against a real OpenSearch instance via Docker.
+## Unit tests
 
-#### Running Unit Tests
+- Fast and offline.
+- No real OpenSearch required (tests use fakes).
+- Sentry dependency is stubbed in `tests/conftest.py` so you don’t need to install the full Sentry package.
 
-These tests do not require any external services. They are fast and should be run frequently during development.
+## Integration tests
 
-```bash
-# Run all tests that are NOT marked as 'integration'
-poetry run pytest -m "not integration"
+- Disabled by default.
+- Use the Docker Compose setup in `docker-compose.yml`:
+  - HTTP (no auth) on `localhost:9200`
+  - HTTPS (requires auth) on `localhost:9201`
+- Verify connectivity and the backend’s basic read/write behavior against real OpenSearch.
+
+---
+
+## Run unit tests (default)
+
+```sh
+poetry run pytest -q
 ```
 
-#### Running Integration Tests
+## Run integration tests
 
-These tests validate the full functionality against a live OpenSearch database.
-
-**Prerequisites:**
--   [Docker](https://www.docker.com/get-started) and Docker Compose must be installed.
-
-**Workflow:**
-
-1.  **Start the OpenSearch Container**  
-    This command starts an OpenSearch instance in the background with the security plugin disabled for easy testing.
-    ```bash
-    docker-compose up -d
-    ```
-    *Note: The first time you run this, it will download the OpenSearch image. Please wait 30-60 seconds for the service to become fully available.*
-
-2.  **Run the Integration Test Suite**  
-    Set the `RUN_INTEGRATION_TESTS` environment variable and use `pytest` to run only the tests marked as `integration`.
-    ```bash
-    # For Linux/macOS
-    export RUN_INTEGRATION_TESTS=true
-    poetry run pytest -m integration -v
-
-    # For Windows (Command Prompt)
-    # set RUN_INTEGRATION_TESTS=true
-    # poetry run pytest -m integration -v
-    ```
-
-3.  **Stop the OpenSearch Container**  
-    When you are finished, shut down the container to free up system resources.
-    ```bash
-    docker-compose down
-    ```
-
-#### Running All Tests
-
-To run the complete test suite (both unit and integration tests), ensure the Docker container is running and execute:
-
-```bash
-export RUN_INTEGRATION_TESTS=true
-poetry run pytest
+```sh
+RUN_INTEGRATION_TESTS=1 poetry run pytest -q
 ```

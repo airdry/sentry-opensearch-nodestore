@@ -1,4 +1,3 @@
-# Expose the main class at the package level
-from .backend import AsyncOpenSearchNodeStorage
+from sentry_opensearch_nodestore.backend import OpenSearchNodeStorage
 
-__all__ = ["AsyncOpenSearchNodeStorage", "SyncOpenSearchNodeStorage"]
+__all__ = ["OpenSearchNodeStorage"]

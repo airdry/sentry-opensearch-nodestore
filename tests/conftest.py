@@ -1,29 +1,71 @@
+# tests/conftest.py
 import sys
-from unittest.mock import MagicMock
+import types
+import os
+import pytest
 
-# --- The Definitive Solution: Manually Mocking a Non-Existent Module ---
+# Stub 'sentry.nodestore.base.NodeStorage'
+if "sentry" not in sys.modules:
+    sentry_mod = types.ModuleType("sentry")
+    sys.modules["sentry"] = sentry_mod
 
-# 1. Create a mock object that will act as the top-level 'sentry' module.
-sentry_mock = MagicMock()
+if "sentry.nodestore" not in sys.modules:
+    nodestore_mod = types.ModuleType("sentry.nodestore")
+    sys.modules["sentry.nodestore"] = nodestore_mod
+
+if "sentry.nodestore.base" not in sys.modules:
+    base_mod = types.ModuleType("sentry.nodestore.base")
+
+    class NodeStorage:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    base_mod.NodeStorage = NodeStorage
+    sys.modules["sentry.nodestore.base"] = base_mod
+
+# Link nested modules
+sys.modules["sentry"].nodestore = sys.modules["sentry.nodestore"]
+sys.modules["sentry.nodestore"].base = sys.modules["sentry.nodestore.base"]
+
+# Optional: stub 'opensearchpy.exceptions' if not installed
+try:
+    import opensearchpy  # noqa: F401
+except Exception:
+    opensearchpy_mod = types.ModuleType("opensearchpy")
+    exceptions_mod = types.ModuleType("opensearchpy.exceptions")
+
+    class NotFoundError(Exception):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args)
+
+    class ConflictError(Exception):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args)
+
+    exceptions_mod.NotFoundError = NotFoundError
+    exceptions_mod.ConflictError = ConflictError
+
+    opensearchpy_mod.exceptions = exceptions_mod
+    sys.modules["opensearchpy"] = opensearchpy_mod
+    sys.modules["opensearchpy.exceptions"] = exceptions_mod
 
 
-# 2. Define a simple stub class. This is what our backend will inherit from.
-class MockNodeStorage:
-    """A mock stand-in for Sentry's NodeStorage base class."""
+def pytest_configure(config):
+    # Register the custom marker so PyTest doesn't warn
+    config.addinivalue_line(
+        "markers",
+        "integration: marks tests that talk to real services (enable with RUN_INTEGRATION_TESTS=1)",
+    )
 
-    def __init__(self, **kwargs):
-        pass
+def pytest_collection_modifyitems(config, items):
+    # Only run integration tests when the env var is set
+    run_integration = os.getenv("RUN_INTEGRATION_TESTS", "").lower() in ("1", "true", "yes", "on")
+    if run_integration:
+        return
 
-
-# 3. Set the nested structure that `backend.py` expects.
-#    When `from sentry.nodestore.base import NodeStorage` is called, Python will
-#    look at our `sentry_mock`, find `nodestore`, then `base`, then `NodeStorage`.
-sentry_mock.nodestore.base.NodeStorage = MockNodeStorage
-
-# 4. The crucial step: Inject the mock objects into Python's module cache.
-#    Any code that now tries to `import sentry` or `from sentry...` will
-#    find our mock objects here and will not attempt to find the real package
-#    on the filesystem, thus preventing the ModuleNotFoundError.
-sys.modules["sentry"] = sentry_mock
-sys.modules["sentry.nodestore"] = sentry_mock.nodestore
-sys.modules["sentry.nodestore.base"] = sentry_mock.nodestore.base
+    skip_integration = pytest.mark.skip(
+        reason="Integration tests disabled. Set RUN_INTEGRATION_TESTS=1 to run."
+    )
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip_integration)
