@@ -1,5 +1,8 @@
 # sentry-opensearch-nodestore
 
+[![PyPI Version](https://img.shields.io/pypi/v/sentry-opensearch-nodestore.svg)](https://pypi.org/project/sentry-opensearch-nodestore/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 Sentry NodeStore backend powered by OpenSearch.
 
 Supported Sentry 24.x / 25.x and OpenSearch 2.x / 3.x.
@@ -101,7 +104,7 @@ INSTALLED_APPS = tuple(INSTALLED_APPS)
 
 ```
 
-### Option B: Use helm chart [sentry] (https://github.com/sentry-kubernetes/charts/tree/develop/charts/sentry)
+### Option B: Use helm chart [sentry](https://github.com/sentry-kubernetes/charts/blob/develop/charts/sentry/values.yaml#L2330)
 
 ```yaml
   sentryConfPy: |
